@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.openapi import API_DESCRIPTION, OPENAPI_TAGS
-from app.routers import health
+from app.routers import auth, health, stack_boxes, users, workspaces
 
 app = FastAPI(
     title="StackBox API",
@@ -26,3 +26,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(workspaces.router)
+app.include_router(stack_boxes.router)
