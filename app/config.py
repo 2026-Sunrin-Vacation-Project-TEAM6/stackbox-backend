@@ -11,5 +11,20 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
 
+    openai_api_key: str = ""
+    openai_base_url: str = ""
+    openai_model: str = "gpt-4o-mini"
+
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    github_oauth_redirect_uri: str = "http://localhost:8000/github/oauth/callback"
+
+    code_runner_url: str = "http://localhost:3001"
+    token_encryption_key: str = ""
+
+    redis_url: str = "redis://localhost:6379"
+    redis_stream_prefix: str = "stackbox:events"
+    frontend_base_url: str = "http://localhost:3000"
+
 
 settings = Settings()
