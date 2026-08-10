@@ -25,3 +25,16 @@ def create_access_token(user_id: int) -> str:
 
 def decode_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+
+
+def create_oauth_state_token(user_id: int) -> str:
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    payload = {"sub": str(user_id), "purpose": "github_oauth_state", "exp": expires_at}
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_oauth_state_token(token: str) -> int:
+    payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    if payload.get("purpose") != "github_oauth_state":
+        raise ValueError("invalid state token purpose")
+    return int(payload["sub"])
