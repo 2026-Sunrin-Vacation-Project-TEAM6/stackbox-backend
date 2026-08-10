@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     github_oauth_redirect_uri: str = "http://localhost:8000/github/oauth/callback"
 
     code_runner_url: str = "http://localhost:3001"
+    code_runner_auth_token: str = ""
     token_encryption_key: str = ""
 
     redis_url: str = "redis://localhost:6379"

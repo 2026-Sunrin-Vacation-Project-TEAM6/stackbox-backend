@@ -52,6 +52,7 @@ def run_block(
         response = httpx.post(
             f"{settings.code_runner_url}/execute",
             json={"language": language, "code": block.content, "stdin": payload.stdin},
+            headers={"X-Code-Runner-Token": settings.code_runner_auth_token},
             timeout=15.0,
         )
         response.raise_for_status()
