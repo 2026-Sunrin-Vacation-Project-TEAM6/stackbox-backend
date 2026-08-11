@@ -14,6 +14,8 @@ from app.schemas.reaction import EmojiCatalogEntry, ReactionCreate, ReactionRead
 
 router = APIRouter(tags=["reactions"])
 
+_VALID_EMOJI_CODES = {entry["code"] for entry in EMOJI_CATALOG}
+
 
 def _get_stack_box_or_404(db: Session, stack_box_id: int) -> StackBox:
     stack_box = db.get(StackBox, stack_box_id)
@@ -49,6 +51,9 @@ def create_reaction(
 ) -> Reaction:
     stack_box = _get_stack_box_or_404(db, stack_box_id)
     require_workspace_role(db, stack_box.workspace_id, current_user, WorkspaceRole.viewer)
+
+    if payload.emoji_code not in _VALID_EMOJI_CODES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown emoji code")
 
     reaction = Reaction(
         stack_box_id=stack_box_id, user_id=current_user.id, emoji_code=payload.emoji_code
