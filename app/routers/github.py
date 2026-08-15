@@ -3,6 +3,7 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.access import require_workspace_role
@@ -133,7 +134,15 @@ def github_oauth_callback(
         account.github_user_id = str(github_user["id"])
         account.github_login = github_user["login"]
         account.access_token_encrypted = encrypted
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This GitHub account is already linked to another StackBox user",
+        )
 
     return RedirectResponse(url=f"{settings.frontend_base_url}/github?connected=1")
 
