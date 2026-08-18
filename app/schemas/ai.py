@@ -1,8 +1,10 @@
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class SummarizeRequest(BaseModel):
-    text: str
+    text: str = Field(max_length=20_000)
 
 
 class SummarizeResponse(BaseModel):
@@ -10,9 +12,9 @@ class SummarizeResponse(BaseModel):
 
 
 class FixCodeRequest(BaseModel):
-    code: str
+    code: str = Field(max_length=20_000)
     language: str | None = None
-    instructions: str | None = None
+    instructions: str | None = Field(default=None, max_length=2_000)
 
 
 class FixCodeResponse(BaseModel):
@@ -21,7 +23,7 @@ class FixCodeResponse(BaseModel):
 
 
 class DraftRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(max_length=4_000)
 
 
 class DraftResponse(BaseModel):
@@ -29,12 +31,12 @@ class DraftResponse(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    role: str
-    content: str
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=8_000)
 
 
 class ChatRequest(BaseModel):
-    messages: list[ChatMessage]
+    messages: list[ChatMessage] = Field(min_length=1, max_length=50)
 
 
 class ChatResponse(BaseModel):

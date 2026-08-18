@@ -14,6 +14,7 @@ from app.models.block import Block, BlockType
 from app.models.stack_box import StackBox
 from app.models.user import User
 from app.models.workspace import WorkspaceRole
+from app.rate_limit import enforce_rate_limit
 from app.schemas.ai import (
     ChatRequest,
     ChatResponse,
@@ -28,6 +29,20 @@ from app.schemas.ai import (
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
+# Every /ai/* call is billed against our OpenAI key regardless of which user
+# triggers it, so cap usage per user rather than leaving it unbounded.
+_AI_RATE_LIMIT = 20
+_AI_RATE_WINDOW_SECONDS = 3600
+
+_CHAT_SYSTEM_PROMPT = (
+    "당신은 StackBox 문서 작성을 돕는 어시스턴트입니다. 사용자 요청에 협조적이고 "
+    "간결하게 답하세요."
+)
+
+
+def _enforce_ai_rate_limit(current_user: User = Depends(get_current_user)) -> None:
+    enforce_rate_limit(f"ai:{current_user.id}", _AI_RATE_LIMIT, _AI_RATE_WINDOW_SECONDS)
+
 
 def _get_stack_box_or_404(db: Session, stack_box_id: int) -> StackBox:
     stack_box = db.get(StackBox, stack_box_id)
@@ -38,7 +53,9 @@ def _get_stack_box_or_404(db: Session, stack_box_id: int) -> StackBox:
 
 @router.post("/summarize", response_model=SummarizeResponse)
 def summarize(
-    payload: SummarizeRequest, current_user: User = Depends(get_current_user)
+    payload: SummarizeRequest,
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(_enforce_ai_rate_limit),
 ) -> SummarizeResponse:
     summary = ai_complete(
         "당신은 문서를 간결하게 요약하는 어시스턴트입니다. 핵심만 3~5문장으로 요약하세요.",
@@ -49,7 +66,9 @@ def summarize(
 
 @router.post("/fix-code", response_model=FixCodeResponse)
 def fix_code(
-    payload: FixCodeRequest, current_user: User = Depends(get_current_user)
+    payload: FixCodeRequest,
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(_enforce_ai_rate_limit),
 ) -> FixCodeResponse:
     instructions = payload.instructions or "버그를 찾아 수정하고 개선하세요."
     language_hint = f" (언어: {payload.language})" if payload.language else ""
@@ -74,7 +93,11 @@ def fix_code(
 
 
 @router.post("/draft", response_model=DraftResponse)
-def draft(payload: DraftRequest, current_user: User = Depends(get_current_user)) -> DraftResponse:
+def draft(
+    payload: DraftRequest,
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(_enforce_ai_rate_limit),
+) -> DraftResponse:
     text = ai_complete(
         "당신은 문서 초안을 작성하는 어시스턴트입니다. 마크다운 형식으로 초안을 작성하세요.",
         payload.prompt,
@@ -83,8 +106,16 @@ def draft(payload: DraftRequest, current_user: User = Depends(get_current_user))
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(payload: ChatRequest, current_user: User = Depends(get_current_user)) -> ChatResponse:
-    messages = [{"role": m.role, "content": m.content} for m in payload.messages]
+def chat(
+    payload: ChatRequest,
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(_enforce_ai_rate_limit),
+) -> ChatResponse:
+    # payload.messages can only carry "user"/"assistant" roles (see ChatMessage),
+    # so the system prompt below is always the first and only "system" message
+    # sent to OpenAI.
+    messages = [{"role": "system", "content": _CHAT_SYSTEM_PROMPT}]
+    messages += [{"role": m.role, "content": m.content} for m in payload.messages]
     reply = ai_chat(messages)
     return ChatResponse(reply=reply)
 
@@ -94,6 +125,7 @@ def doc_to_ppt(
     payload: DocToPptRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _: None = Depends(_enforce_ai_rate_limit),
 ) -> StreamingResponse:
     stack_box = _get_stack_box_or_404(db, payload.stack_box_id)
     require_workspace_role(db, stack_box.workspace_id, current_user, WorkspaceRole.viewer)
