@@ -10,7 +10,6 @@ class WorkspaceBase(BaseModel):
     slug: str = Field(max_length=100)
     description: str = ""
     icon: str | None = Field(default=None, max_length=64)
-    owner_id: int
 
 
 class WorkspaceCreate(WorkspaceBase):
@@ -22,13 +21,13 @@ class WorkspaceUpdate(BaseModel):
     slug: str | None = Field(default=None, max_length=100)
     description: str | None = None
     icon: str | None = Field(default=None, max_length=64)
-    owner_id: int | None = None
 
 
 class WorkspaceRead(WorkspaceBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    owner_id: int
     created_at: datetime
     updated_at: datetime
 

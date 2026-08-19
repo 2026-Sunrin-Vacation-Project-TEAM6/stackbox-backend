@@ -86,7 +86,7 @@ def update_workspace(
 ) -> Workspace:
     workspace = _get_workspace_or_404(db, workspace_id)
     require_workspace_role(db, workspace_id, current_user, WorkspaceRole.admin)
-    for field, value in payload.model_dump(exclude_unset=True, exclude={"owner_id"}).items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(workspace, field, value)
     db.commit()
     db.refresh(workspace)
