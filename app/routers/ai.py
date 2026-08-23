@@ -21,6 +21,8 @@ from app.schemas.ai import (
     DocToPptRequest,
     DraftRequest,
     DraftResponse,
+    EditTextRequest,
+    EditTextResponse,
     FixCodeRequest,
     FixCodeResponse,
     SummarizeRequest,
@@ -90,6 +92,25 @@ def fix_code(
             explanation = remainder.replace("설명:", "").strip()
 
     return FixCodeResponse(fixed_code=fixed_code.strip(), explanation=explanation)
+
+
+@router.post("/edit-text", response_model=EditTextResponse)
+def edit_text(
+    payload: EditTextRequest,
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(_enforce_ai_rate_limit),
+) -> EditTextResponse:
+    # Distinct from /fix-code on purpose: that endpoint's system prompt casts
+    # the model as a software engineer and always wraps its reply in a code
+    # fence, which is the wrong voice and format for revising prose selected
+    # in the document editor.
+    system_prompt = (
+        "당신은 사용자가 선택한 텍스트를 지시사항에 따라 수정하는 어시스턴트입니다. "
+        "수정된 텍스트만 출력하고, 다른 설명이나 따옴표, 코드 블록은 포함하지 마세요."
+    )
+    user_prompt = f"지시사항: {payload.instructions}\n\n텍스트:\n{payload.text}"
+    edited_text = ai_complete(system_prompt, user_prompt).strip()
+    return EditTextResponse(edited_text=edited_text)
 
 
 @router.post("/draft", response_model=DraftResponse)

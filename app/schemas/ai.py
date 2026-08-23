@@ -22,6 +22,15 @@ class FixCodeResponse(BaseModel):
     explanation: str
 
 
+class EditTextRequest(BaseModel):
+    text: str = Field(max_length=20_000)
+    instructions: str = Field(max_length=2_000)
+
+
+class EditTextResponse(BaseModel):
+    edited_text: str
+
+
 class DraftRequest(BaseModel):
     prompt: str = Field(max_length=4_000)
 
