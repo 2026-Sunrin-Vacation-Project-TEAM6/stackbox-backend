@@ -27,5 +27,14 @@ class Settings(BaseSettings):
     redis_stream_prefix: str = "stackbox:events"
     frontend_base_url: str = "http://localhost:3000"
 
+    # Comma-separated list of origins allowed by CORS. Kept env-driven (not
+    # a hardcoded list) since this changes across environments -- e.g. add
+    # the production domain here once one exists, without a code change.
+    cors_allowed_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:3002,http://127.0.0.1:3002,"
+        "https://localhost"
+    )
+
 
 settings = Settings()
