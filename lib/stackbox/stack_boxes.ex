@@ -185,7 +185,9 @@ defmodule Stackbox.StackBoxes do
 
       %CanvasPresence{} = presence ->
         presence
-        |> CanvasPresence.changeset(attrs)
+        |> CanvasPresence.changeset(
+          Map.drop(attrs, [:stack_box_id, :user_id, "stack_box_id", "user_id"])
+        )
         |> Repo.update()
     end
   end
