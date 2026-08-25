@@ -17,6 +17,8 @@ defmodule Stackbox.Reactions do
     Repo.get_by(Reaction, stack_box_id: stack_box_id, user_id: user_id, emoji_code: emoji_code)
   end
 
+  def get_reaction_by_id(id), do: Repo.get(Reaction, id)
+
   def add_reaction(attrs) do
     %Reaction{}
     |> Reaction.changeset(attrs)
