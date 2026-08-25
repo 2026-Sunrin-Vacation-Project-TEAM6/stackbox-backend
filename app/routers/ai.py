@@ -1,4 +1,5 @@
 import io
+from collections import Counter, defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -13,7 +14,7 @@ from app.dependencies import get_current_user
 from app.models.block import Block, BlockType
 from app.models.stack_box import StackBox
 from app.models.user import User
-from app.models.workspace import WorkspaceRole
+from app.models.workspace import Workspace, WorkspaceRole
 from app.rate_limit import enforce_rate_limit
 from app.schemas.ai import (
     ChatRequest,
@@ -25,6 +26,8 @@ from app.schemas.ai import (
     EditTextResponse,
     FixCodeRequest,
     FixCodeResponse,
+    RepoArchitectureRequest,
+    RepoArchitectureResponse,
     SummarizeRequest,
     SummarizeResponse,
 )
@@ -51,6 +54,58 @@ def _get_stack_box_or_404(db: Session, stack_box_id: int) -> StackBox:
     if stack_box is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="StackBox not found")
     return stack_box
+
+
+def _get_workspace_or_404(db: Session, workspace_id: int) -> Workspace:
+    workspace = db.get(Workspace, workspace_id)
+    if workspace is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
+    return workspace
+
+
+def _build_repo_architecture_summary(db: Session, workspace: Workspace) -> str:
+    """Serialize a workspace's StackBox tree (folders/pages/canvases and their
+    blocks) into plain text suitable as an AI prompt input."""
+    stack_boxes = (
+        db.query(StackBox)
+        .filter(StackBox.workspace_id == workspace.id)
+        .order_by(StackBox.parent_id, StackBox.sort_order)
+        .all()
+    )
+    if not stack_boxes:
+        return f"워크스페이스 '{workspace.name}'에는 아직 StackBox가 없습니다."
+
+    block_counts: dict[int, Counter[BlockType]] = defaultdict(Counter)
+    stack_box_ids = [stack_box.id for stack_box in stack_boxes]
+    for stack_box_id, block_type in (
+        db.query(Block.stack_box_id, Block.type).filter(Block.stack_box_id.in_(stack_box_ids)).all()
+    ):
+        block_counts[stack_box_id][block_type] += 1
+
+    children_by_parent: dict[int | None, list[StackBox]] = defaultdict(list)
+    for stack_box in stack_boxes:
+        children_by_parent[stack_box.parent_id].append(stack_box)
+
+    lines = [f"워크스페이스: {workspace.name} ({workspace.slug})"]
+
+    def describe_blocks(stack_box_id: int) -> str:
+        counts = block_counts.get(stack_box_id)
+        if not counts:
+            return ""
+        parts = ", ".join(f"{block_type.value} 블록 {count}개" for block_type, count in counts.items())
+        return f" - {parts}"
+
+    def walk(parent_id: int | None, depth: int) -> None:
+        for stack_box in children_by_parent.get(parent_id, []):
+            indent = "  " * depth
+            lines.append(
+                f"{indent}- [{stack_box.type.value}] {stack_box.name} "
+                f"(id={stack_box.id}){describe_blocks(stack_box.id)}"
+            )
+            walk(stack_box.id, depth + 1)
+
+    walk(None, 0)
+    return "\n".join(lines)
 
 
 @router.post("/summarize", response_model=SummarizeResponse)
@@ -139,6 +194,28 @@ def chat(
     messages += [{"role": m.role, "content": m.content} for m in payload.messages]
     reply = ai_chat(messages)
     return ChatResponse(reply=reply)
+
+
+@router.post("/repo-architecture", response_model=RepoArchitectureResponse)
+def repo_architecture(
+    payload: RepoArchitectureRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(_enforce_ai_rate_limit),
+) -> RepoArchitectureResponse:
+    workspace = _get_workspace_or_404(db, payload.workspace_id)
+    require_workspace_role(db, workspace.id, current_user, WorkspaceRole.viewer)
+
+    summary = _build_repo_architecture_summary(db, workspace)
+
+    analysis = ai_complete(
+        "당신은 소프트웨어 문서/캔버스 구조를 분석하는 아키텍처 어시스턴트입니다. 아래는 StackBox "
+        "워크스페이스의 구조(폴더·페이지·캔버스 계층과 각 문서에 포함된 블록 구성)를 요약한 내용입니다. "
+        "이 구조를 바탕으로 전체 구성, 계층 관계, 콘텐츠 분포의 특징을 설명하는 서술형 아키텍처 분석을 "
+        "작성하세요.",
+        summary,
+    )
+    return RepoArchitectureResponse(analysis=analysis)
 
 
 @router.post("/doc-to-ppt")

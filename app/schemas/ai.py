@@ -54,3 +54,11 @@ class ChatResponse(BaseModel):
 
 class DocToPptRequest(BaseModel):
     stack_box_id: int
+
+
+class RepoArchitectureRequest(BaseModel):
+    workspace_id: int
+
+
+class RepoArchitectureResponse(BaseModel):
+    analysis: str
