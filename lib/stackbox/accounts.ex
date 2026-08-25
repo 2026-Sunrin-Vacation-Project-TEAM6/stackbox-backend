@@ -39,13 +39,19 @@ defmodule Stackbox.Accounts do
   def delete_user(%User{} = user), do: Repo.delete(user)
 
   def authenticate_user(email, password) do
-    with %User{} = user <- get_user_by_email(email),
-         true <- is_binary(user.password_hash),
-         true <- Stackbox.Guardian.verify_password(password, user.password_hash),
-         true <- user.is_active do
-      {:ok, user}
-    else
-      _ -> {:error, :invalid_credentials}
+    case get_user_by_email(email) do
+      %User{password_hash: hash} = user when is_binary(hash) ->
+        if Stackbox.Guardian.verify_password(password, hash) and user.is_active do
+          {:ok, user}
+        else
+          {:error, :invalid_credentials}
+        end
+
+      _ ->
+        # Pay the same bcrypt cost as a real lookup so response timing can't
+        # be used to enumerate registered emails.
+        Bcrypt.no_user_verify()
+        {:error, :invalid_credentials}
     end
   end
 

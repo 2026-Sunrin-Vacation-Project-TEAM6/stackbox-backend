@@ -21,6 +21,9 @@ if config_env() == :prod do
     System.get_env("SECRET_KEY_BASE") ||
       raise "environment variable SECRET_KEY_BASE is missing"
 
+  System.get_env("TOKEN_ENCRYPTION_KEY") ||
+    raise "environment variable TOKEN_ENCRYPTION_KEY is missing"
+
   host = System.get_env("PHX_HOST") || "localhost"
   port = String.to_integer(System.get_env("PORT") || "8000")
 
