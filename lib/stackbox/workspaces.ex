@@ -27,13 +27,13 @@ defmodule Stackbox.Workspaces do
 
   def create_workspace(attrs) do
     %Workspace{}
-    |> Workspace.changeset(attrs)
+    |> Workspace.create_changeset(attrs)
     |> Repo.insert()
   end
 
   def update_workspace(%Workspace{} = workspace, attrs) do
     workspace
-    |> Workspace.changeset(attrs)
+    |> Workspace.update_changeset(attrs)
     |> Repo.update()
   end
 
@@ -50,13 +50,13 @@ defmodule Stackbox.Workspaces do
 
   def add_workspace_member(attrs) do
     %WorkspaceMember{}
-    |> WorkspaceMember.changeset(attrs)
+    |> WorkspaceMember.create_changeset(attrs)
     |> Repo.insert()
   end
 
   def update_workspace_member(%WorkspaceMember{} = member, attrs) do
     member
-    |> WorkspaceMember.changeset(attrs)
+    |> WorkspaceMember.update_changeset(attrs)
     |> Repo.update()
   end
 
