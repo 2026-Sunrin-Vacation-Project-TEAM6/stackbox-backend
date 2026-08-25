@@ -1,5 +1,13 @@
 import Config
 
+jwt_secret =
+  if config_env() == :prod do
+    System.get_env("JWT_SECRET") ||
+      raise "environment variable JWT_SECRET is missing"
+  else
+    System.get_env("JWT_SECRET", "change-me")
+  end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -24,7 +32,7 @@ end
 
 # --- Application settings (ported from backend/app/config.py Settings) ---
 config :stackbox, :settings,
-  jwt_secret: System.get_env("JWT_SECRET", "change-me"),
+  jwt_secret: jwt_secret,
   access_token_expire_minutes:
     String.to_integer(System.get_env("ACCESS_TOKEN_EXPIRE_MINUTES", "30")),
   refresh_token_expire_days: String.to_integer(System.get_env("REFRESH_TOKEN_EXPIRE_DAYS", "30")),
@@ -46,4 +54,4 @@ config :stackbox, :settings,
 
 config :stackbox, Stackbox.Guardian,
   issuer: "stackbox",
-  secret_key: System.get_env("JWT_SECRET", "change-me")
+  secret_key: jwt_secret
