@@ -21,8 +21,14 @@ defmodule StackboxWeb.Telemetry do
   end
 
   defp periodic_measurements do
-    [
-      {:process_info, event: [:vm, :memory], measurement: :total}
-    ]
+    # {:process_info, ...} measurements require a specific process `:name`
+    # (they report on one process's info, e.g. message_queue_len) — the
+    # previous entry here passed `event: [:vm, :memory]` with no `:name`,
+    # which isn't valid for that measurement type and crashed
+    # telemetry_poller's supervisor on every application start (including
+    # under `mix test`). Left empty until a real periodic measurement is
+    # needed; see telemetry_poller's docs for `:vm_memory` if VM-wide memory
+    # is wanted instead.
+    []
   end
 end
