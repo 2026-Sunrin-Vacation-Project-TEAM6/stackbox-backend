@@ -95,16 +95,19 @@ def _build_repo_architecture_summary(db: Session, workspace: Workspace) -> str:
         parts = ", ".join(f"{block_type.value} 블록 {count}개" for block_type, count in counts.items())
         return f" - {parts}"
 
-    def walk(parent_id: int | None, depth: int) -> None:
+    def walk(parent_id: int | None, depth: int, visited: set[int]) -> None:
         for stack_box in children_by_parent.get(parent_id, []):
+            if stack_box.id in visited:
+                continue
+            visited.add(stack_box.id)
             indent = "  " * depth
             lines.append(
                 f"{indent}- [{stack_box.type.value}] {stack_box.name} "
                 f"(id={stack_box.id}){describe_blocks(stack_box.id)}"
             )
-            walk(stack_box.id, depth + 1)
+            walk(stack_box.id, depth + 1, visited)
 
-    walk(None, 0)
+    walk(None, 0, set())
     return "\n".join(lines)
 
 
