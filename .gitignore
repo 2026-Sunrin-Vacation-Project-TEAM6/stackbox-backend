@@ -4,3 +4,17 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+
+# Elixir/Phoenix (this .gitignore predated the Phoenix rewrite and never
+# picked up the standard `mix phx.new` ignores, so build artifacts and
+# crash dumps were untracked-but-unignored)
+/_build/
+/cover/
+/deps/
+/doc/
+*.ez
+erl_crash.dump
+*.beam
+/config/*.secret.exs
+.elixir_ls/
+.lexical/

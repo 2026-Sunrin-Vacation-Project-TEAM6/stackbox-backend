@@ -14,7 +14,10 @@ defmodule Stackbox.Application do
         id: Stackbox.Redix,
         start: {Redix, :start_link, [Stackbox.Settings.get(:redis_url), [name: Stackbox.Redix]]}
       },
-      Stackbox.Realtime.RedisSubscriber,
+      # TODO(realtime phase): Stackbox.Realtime.RedisSubscriber was wired up
+      # here before it was implemented, which crashed application boot
+      # (UndefinedFunctionError). Re-add once the redis_publish.py-equivalent
+      # subscriber module exists.
       StackboxWeb.Endpoint
     ]
 
