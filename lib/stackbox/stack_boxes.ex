@@ -38,15 +38,15 @@ defmodule Stackbox.StackBoxes do
     |> Repo.all()
   end
 
-  def create_stack_box(attrs) do
+  def create_stack_box(attrs, creator_id) do
     %StackBox{}
-    |> StackBox.changeset(attrs)
+    |> StackBox.create_changeset(attrs, creator_id)
     |> Repo.insert()
   end
 
-  def update_stack_box(%StackBox{} = stack_box, attrs) do
+  def update_stack_box(%StackBox{} = stack_box, attrs, updater_id) do
     stack_box
-    |> StackBox.changeset(attrs)
+    |> StackBox.update_changeset(attrs, updater_id)
     |> Repo.update()
   end
 
@@ -63,16 +63,46 @@ defmodule Stackbox.StackBoxes do
     |> Repo.all()
   end
 
-  def create_doc_block(attrs) do
+  def create_doc_block(attrs, creator_id) do
     %DocBlock{}
-    |> DocBlock.changeset(attrs)
+    |> DocBlock.create_changeset(attrs, creator_id)
     |> Repo.insert()
   end
 
-  def update_doc_block(%DocBlock{} = block, attrs) do
+  def update_doc_block(%DocBlock{} = block, attrs, updater_id) do
     block
-    |> DocBlock.changeset(attrs)
+    |> DocBlock.update_changeset(attrs, updater_id)
     |> Repo.update()
+  end
+
+  def reorder_doc_block(%DocBlock{} = block, sort_order, updater_id) do
+    block
+    |> DocBlock.reorder_changeset(sort_order, updater_id)
+    |> Repo.update()
+  end
+
+  @doc """
+  Bulk-reorders blocks. Each entry in `orders` must be
+  `%{"id" => block_id, "sort_order" => n}`; every referenced block is
+  required to belong to `stack_box_id` (looked up with a scoped
+  `Repo.get_by/2`) so a caller can't use this to touch blocks outside the
+  stack box they were authorized against.
+  """
+  def reorder_doc_blocks(stack_box_id, orders, updater_id) do
+    Repo.transaction(fn ->
+      Enum.map(orders, fn %{"id" => id, "sort_order" => sort_order} ->
+        case Repo.get_by(DocBlock, id: id, stack_box_id: stack_box_id) do
+          nil ->
+            Repo.rollback(:not_found)
+
+          block ->
+            case reorder_doc_block(block, sort_order, updater_id) do
+              {:ok, updated} -> updated
+              {:error, changeset} -> Repo.rollback(changeset)
+            end
+        end
+      end)
+    end)
   end
 
   def delete_doc_block(%DocBlock{} = block), do: Repo.delete(block)
@@ -86,9 +116,9 @@ defmodule Stackbox.StackBoxes do
     |> Repo.all()
   end
 
-  def create_code_run(attrs) do
+  def create_code_run(attrs, executor_id) do
     %CodeRun{}
-    |> CodeRun.changeset(attrs)
+    |> CodeRun.create_changeset(attrs, executor_id)
     |> Repo.insert()
   end
 
@@ -96,16 +126,16 @@ defmodule Stackbox.StackBoxes do
 
   def get_doc_snapshot(stack_box_id), do: Repo.get(DocSnapshot, stack_box_id)
 
-  def upsert_doc_snapshot(stack_box_id, attrs) do
+  def upsert_doc_snapshot(stack_box_id, attrs, user_id) do
     case get_doc_snapshot(stack_box_id) do
       nil ->
         %DocSnapshot{}
-        |> DocSnapshot.changeset(Map.put(attrs, :stack_box_id, stack_box_id))
+        |> DocSnapshot.create_changeset(Map.put(attrs, :stack_box_id, stack_box_id), user_id)
         |> Repo.insert()
 
       %DocSnapshot{} = snapshot ->
         snapshot
-        |> DocSnapshot.changeset(attrs)
+        |> DocSnapshot.update_changeset(attrs, user_id)
         |> Repo.update()
     end
   end
@@ -120,9 +150,9 @@ defmodule Stackbox.StackBoxes do
     |> Repo.all()
   end
 
-  def create_doc_update(attrs) do
+  def create_doc_update(attrs, creator_id) do
     %DocUpdate{}
-    |> DocUpdate.changeset(attrs)
+    |> DocUpdate.create_changeset(attrs, creator_id)
     |> Repo.insert()
   end
 
