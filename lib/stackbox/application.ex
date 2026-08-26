@@ -14,10 +14,14 @@ defmodule Stackbox.Application do
         id: Stackbox.Redix,
         start: {Redix, :start_link, [Stackbox.Settings.get(:redis_url), [name: Stackbox.Redix]]}
       },
-      # TODO(realtime phase): Stackbox.Realtime.RedisSubscriber was wired up
-      # here before it was implemented, which crashed application boot
-      # (UndefinedFunctionError). Re-add once the redis_publish.py-equivalent
-      # subscriber module exists.
+      # Relays cross-node realtime notifications (see `Stackbox.Realtime`'s
+      # moduledoc for the interop rationale). Previously this entry
+      # referenced a module that didn't exist yet, which crashed
+      # application boot (`UndefinedFunctionError` on `child_spec/1`) —
+      # `Stackbox.Realtime.RedisSubscriber` now exists and fails gracefully
+      # (logs and keeps running) instead of crashing if Redis is
+      # unreachable, so it's safe to supervise unconditionally.
+      Stackbox.Realtime.RedisSubscriber,
       StackboxWeb.Endpoint
     ]
 

@@ -62,6 +62,7 @@ defmodule StackboxWeb.Router do
     get("/:id/snapshot", StackBoxController, :get_snapshot)
     put("/:id/snapshot", StackBoxController, :upsert_snapshot)
     get("/:id/updates", StackBoxController, :list_doc_updates)
+    post("/:id/updates", StackBoxController, :create_doc_update)
     get("/:id/presence", StackBoxController, :list_presence)
   end
 
