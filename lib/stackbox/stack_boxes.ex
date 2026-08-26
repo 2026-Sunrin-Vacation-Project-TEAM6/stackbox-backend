@@ -112,7 +112,7 @@ defmodule Stackbox.StackBoxes do
   def get_code_run(id), do: Repo.get(CodeRun, id)
 
   def list_code_runs(block_id) do
-    from(r in CodeRun, where: r.block_id == ^block_id, order_by: [desc: r.id])
+    from(r in CodeRun, where: r.block_id == ^block_id, order_by: [desc: r.id], limit: 20)
     |> Repo.all()
   end
 
