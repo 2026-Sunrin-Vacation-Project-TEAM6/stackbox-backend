@@ -13,10 +13,20 @@ from app.models.code_run import CodeRun
 from app.models.stack_box import StackBox
 from app.models.user import User
 from app.models.workspace import WorkspaceRole
+from app.rate_limit import enforce_rate_limit
 from app.redis_publish import publish_event
 from app.schemas.code_run import CodeExecuteRequest, CodeRunRead
 
 router = APIRouter(tags=["code-execution"])
+
+_CODE_RUN_RATE_LIMIT = 20
+_CODE_RUN_RATE_WINDOW_SECONDS = 60
+
+
+def _enforce_run_rate_limit(current_user: User = Depends(get_current_user)) -> None:
+    enforce_rate_limit(
+        f"code-run:{current_user.id}", _CODE_RUN_RATE_LIMIT, _CODE_RUN_RATE_WINDOW_SECONDS
+    )
 
 
 def _get_block_or_404(db: Session, block_id: int) -> Block:
@@ -39,6 +49,7 @@ def run_block(
     payload: CodeExecuteRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _: None = Depends(_enforce_run_rate_limit),
 ) -> CodeRun:
     block = _get_block_or_404(db, block_id)
     if block.type != BlockType.code:
