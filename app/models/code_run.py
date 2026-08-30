@@ -16,6 +16,11 @@ class CodeRun(Base):
     language: Mapped[str] = mapped_column(String(32), nullable=False)
     stdout: Mapped[str] = mapped_column(Text, nullable=False, default="")
     stderr: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Compiler stderr for compiled languages (C/C++/Rust) when the submitted
+    # code failed to compile. Null for interpreted languages and for runs that
+    # compiled successfully — the frontend renders it as a distinct "did not
+    # compile" state rather than a generic execution failure.
+    compile_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     exit_code: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     executed_by: Mapped[int | None] = mapped_column(
