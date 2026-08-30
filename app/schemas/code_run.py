@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class CodeExecuteRequest(BaseModel):
-    stdin: str | None = None
+    stdin: str | None = Field(default=None, max_length=64_000)
 
 
 class CodeRunRead(BaseModel):

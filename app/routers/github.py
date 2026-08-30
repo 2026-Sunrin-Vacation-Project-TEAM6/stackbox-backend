@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from urllib.parse import quote
 
 from app.access import require_workspace_role
 from app.config import settings
@@ -95,29 +96,39 @@ def github_oauth_callback(
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid state") from exc
 
-    token_response = httpx.post(
-        GITHUB_TOKEN_URL,
-        headers={"Accept": "application/json"},
-        data={
-            "client_id": settings.github_client_id,
-            "client_secret": settings.github_client_secret,
-            "code": code,
-            "redirect_uri": settings.github_oauth_redirect_uri,
-        },
-        timeout=10.0,
-    )
-    token_response.raise_for_status()
+    try:
+        token_response = httpx.post(
+            GITHUB_TOKEN_URL,
+            headers={"Accept": "application/json"},
+            data={
+                "client_id": settings.github_client_id,
+                "client_secret": settings.github_client_secret,
+                "code": code,
+                "redirect_uri": settings.github_oauth_redirect_uri,
+            },
+            timeout=10.0,
+        )
+        token_response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="GitHub token exchange failed"
+        ) from exc
     token_data = token_response.json()
     access_token = token_data.get("access_token")
     if not access_token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="GitHub token exchange failed")
 
-    user_response = httpx.get(
-        f"{GITHUB_API_URL}/user",
-        headers={"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"},
-        timeout=10.0,
-    )
-    user_response.raise_for_status()
+    try:
+        user_response = httpx.get(
+            f"{GITHUB_API_URL}/user",
+            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"},
+            timeout=10.0,
+        )
+        user_response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="GitHub user profile fetch failed"
+        ) from exc
     github_user = user_response.json()
 
     account = db.query(GithubAccount).filter(GithubAccount.user_id == user_id).first()
@@ -190,8 +201,12 @@ def list_contents(
 ) -> list[GithubContentRead]:
     account = _get_account_or_404(db, current_user.id)
     token = decrypt_token(account.access_token_encrypted)
+    # Contents paths are URL-unfriendly (spaces, `#`, `%`, non-ASCII...). Build
+    # a query param so httpx percent-encodes properly instead of interpolating
+    # the raw string into the path (which would let `#` truncate the request).
     response = httpx.get(
-        f"{GITHUB_API_URL}/repos/{owner}/{repo}/contents/{path}",
+        f"{GITHUB_API_URL}/repos/{owner}/{repo}/contents",
+        params={"path": path} if path else None,
         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
         timeout=10.0,
     )
@@ -213,6 +228,11 @@ def import_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> GithubImportResult:
+    if not 1 <= len(payload.paths) <= 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Import requires between 1 and 100 paths",
+        )
     stack_box = _get_stack_box_or_404(db, payload.stack_box_id)
     require_workspace_role(db, stack_box.workspace_id, current_user, WorkspaceRole.editor)
     account = _get_account_or_404(db, current_user.id)
@@ -222,7 +242,7 @@ def import_files(
     max_sort = db.query(Block).filter(Block.stack_box_id == stack_box.id).count()
     for offset, path in enumerate(payload.paths):
         content_response = httpx.get(
-            f"{GITHUB_API_URL}/repos/{payload.owner}/{payload.repo}/contents/{path}",
+            f"{GITHUB_API_URL}/repos/{quote(payload.owner)}/{quote(payload.repo)}/contents/{quote(path)}",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.raw+json"},
             timeout=10.0,
         )
