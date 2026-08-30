@@ -82,11 +82,22 @@ defmodule StackboxWeb.Router do
     get("/:id/runs", CodeExecController, :list_runs)
   end
 
+  # `/oauth/callback` is hit by the browser being redirected by GitHub (a
+  # plain top-level navigation, no `Authorization` header), so it is
+  # deliberately kept out of the `:auth` pipeline and instead recovers the
+  # user id from the signed `state` param, mirroring
+  # `backend/app/routers/github.py`'s `github_oauth_callback` (which has no
+  # `get_current_user` dependency, unlike every other route in this scope).
+  scope "/github", StackboxWeb do
+    pipe_through(:api)
+
+    get("/oauth/callback", GithubController, :oauth_callback)
+  end
+
   scope "/github", StackboxWeb do
     pipe_through([:api, :auth])
 
     get("/oauth/login", GithubController, :oauth_login)
-    get("/oauth/callback", GithubController, :oauth_callback)
     get("/account", GithubController, :get_account)
     get("/repos", GithubController, :list_repos)
     get("/contents", GithubController, :list_contents)
