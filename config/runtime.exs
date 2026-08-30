@@ -62,4 +62,6 @@ config :stackbox, :settings,
 
 config :stackbox, Stackbox.Guardian,
   issuer: "stackbox",
-  secret_key: jwt_secret
+  secret_key: jwt_secret,
+  allowed_algos: ["HS256"],
+  verify_issuer: false
