@@ -15,6 +15,7 @@ class CodeRunRead(BaseModel):
     language: str = Field(max_length=32)
     stdout: str
     stderr: str
+    compile_error: str | None = None
     exit_code: int
     duration_ms: int
     executed_by: int | None
