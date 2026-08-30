@@ -156,6 +156,35 @@ defmodule Stackbox.StackBoxes do
     |> Repo.insert()
   end
 
+  @doc """
+  Appends a doc update with a server-computed `seq` (never trusted from a
+  caller), retrying a bounded number of times if a concurrent writer for
+  the same `stack_box_id` raced us to the next sequence number.
+  """
+  def append_doc_update(stack_box_id, blob, creator_id, attempts \\ 3) do
+    seq = max_doc_update_seq(stack_box_id) + 1
+    attrs = %{stack_box_id: stack_box_id, blob: blob, seq: seq}
+
+    case create_doc_update(attrs, creator_id) do
+      {:ok, update} ->
+        {:ok, update}
+
+      {:error, changeset} = error ->
+        if attempts > 1 and seq_conflict?(changeset) do
+          append_doc_update(stack_box_id, blob, creator_id, attempts - 1)
+        else
+          error
+        end
+    end
+  end
+
+  defp seq_conflict?(changeset) do
+    Enum.any?(changeset.errors, fn
+      {:stack_box_id, {_, opts}} -> Keyword.get(opts, :constraint) == :unique
+      _ -> false
+    end)
+  end
+
   def max_doc_update_seq(stack_box_id) do
     from(u in DocUpdate, where: u.stack_box_id == ^stack_box_id, select: max(u.seq))
     |> Repo.one()
