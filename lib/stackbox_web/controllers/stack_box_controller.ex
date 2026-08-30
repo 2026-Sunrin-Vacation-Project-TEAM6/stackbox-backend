@@ -4,6 +4,7 @@ defmodule StackboxWeb.StackBoxController do
   use StackboxWeb, :controller
 
   alias Stackbox.Authorization
+  alias Stackbox.Realtime
   alias Stackbox.StackBoxes
   alias Stackbox.StackBoxes.StackBox
 
@@ -112,6 +113,31 @@ defmodule StackboxWeb.StackBoxController do
       json(conn, Enum.map(updates, &doc_update_json/1))
     end
   end
+
+  @doc """
+  Appends a single CRDT update (base64-encoded Yjs-format binary blob,
+  matching `doc_updates.blob`). `seq` is always computed server-side via
+  `StackBoxes.append_doc_update/3` — never accepted from the request body —
+  the same discipline `StackboxWeb.StackBoxChannel`'s `"doc_update"` event
+  and `web_worker`'s consumer (`redis_stream.rs`) apply. Also broadcasts to
+  any live-connected `"stack_box:<id>"` channel subscribers so this REST
+  fallback path (e.g. a client catching up while its WebSocket reconnects)
+  stays in sync with the realtime channel.
+  """
+  def create_doc_update(conn, %{"id" => id, "blob" => blob} = _params) when is_binary(blob) do
+    current_user = conn.assigns.current_user
+
+    with {:ok, stack_box} <- fetch_stack_box(id),
+         {:ok, _role} <- require_role(stack_box.workspace_id, current_user, :editor),
+         {:ok, blob_bin} <- decode_base64(blob),
+         {:ok, update} <- StackBoxes.append_doc_update(stack_box.id, blob_bin, current_user.id) do
+      payload = doc_update_json(update)
+      Realtime.broadcast(stack_box.id, "doc_update", payload)
+      conn |> put_status(:created) |> json(payload)
+    end
+  end
+
+  def create_doc_update(_conn, _params), do: {:error, :bad_request, "blob is required"}
 
   def list_presence(conn, %{"id" => id}) do
     with {:ok, stack_box} <- fetch_stack_box(id),

@@ -26,7 +26,15 @@ defmodule Stackbox.StackBoxes.DocUpdate do
     |> cast(attrs, [:stack_box_id, :blob, :seq])
     |> validate_required([:stack_box_id, :blob, :seq])
     |> put_change(:created_by, creator_id)
-    |> unique_constraint([:stack_box_id, :seq])
+    # The migration creates a raw SQL `UNIQUE (stack_box_id, seq)` table
+    # constraint, which Postgres names `doc_updates_stack_box_id_seq_key`
+    # (the `_key` suffix Postgres uses for inline UNIQUE constraints) rather
+    # than the `_index` suffix Ecto's `unique_constraint/2,3` guesses by
+    # default for a field list. Without pinning `:name` here, a real
+    # duplicate-seq insert raises an unhandled `Ecto.ConstraintError`
+    # instead of a normal changeset error `create_doc_update/2` callers can
+    # match on (e.g. `Stackbox.StackBoxes.append_doc_update/3`'s retry).
+    |> unique_constraint([:stack_box_id, :seq], name: :doc_updates_stack_box_id_seq_key)
     |> foreign_key_constraint(:stack_box_id)
   end
 end
