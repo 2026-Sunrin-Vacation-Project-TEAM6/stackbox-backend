@@ -27,16 +27,7 @@ defmodule StackboxWeb.Endpoint do
   plug(Plug.Session, @session_options)
 
   plug(CORSPlug,
-    origin: [
-      "http://localhost",
-      "http://127.0.0.1",
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-      "http://localhost:3002",
-      "http://127.0.0.1:3002",
-      "http://localhost:8000",
-      "http://127.0.0.1:8000"
-    ],
+    origin: &Stackbox.Cors.origins/0,
     credentials: true,
     headers: ["*"],
     methods: ["*"]

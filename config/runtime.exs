@@ -53,7 +53,12 @@ config :stackbox, :settings,
   token_encryption_key: System.get_env("TOKEN_ENCRYPTION_KEY", ""),
   redis_url: System.get_env("REDIS_URL", "redis://localhost:6379"),
   redis_stream_prefix: System.get_env("REDIS_STREAM_PREFIX", "stackbox:events"),
-  frontend_base_url: System.get_env("FRONTEND_BASE_URL", "http://localhost:3000")
+  frontend_base_url: System.get_env("FRONTEND_BASE_URL", "http://localhost:3000"),
+  cors_allowed_origins:
+    System.get_env(
+      "CORS_ALLOWED_ORIGINS",
+      "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3002,http://127.0.0.1:3002"
+    )
 
 config :stackbox, Stackbox.Guardian,
   issuer: "stackbox",
