@@ -27,7 +27,11 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "localhost"
   port = String.to_integer(System.get_env("PORT") || "8000")
 
-  config :stackbox, StackboxWeb.Endpoint,
+config :stackbox, StackboxWeb.Endpoint,
+    # Phoenix only starts the HTTP server when `server: true` — the default
+    # enables it in dev only. Without this, the prod release boots but never
+    # binds PORT, so every request gets reset/502.
+    server: true,
     url: [host: host, port: 443, scheme: "https"],
     http: [ip: {0, 0, 0, 0, 0, 0, 0, 0}, port: port],
     secret_key_base: secret_key_base
